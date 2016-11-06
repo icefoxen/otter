@@ -1,28 +1,38 @@
-#[macro_use]
-extern crate nickel;
+extern crate iron;
+extern crate router;
+extern crate staticfile;
 
-use nickel::{Nickel, HttpRouter};
+use std::path::Path;
+
+use iron::prelude::*;
+use iron::status;
+
+use router::Router;
+use staticfile::Static;
 
 
-fn get_page(request: &mut nickel::Request) -> String {
-
-    "Get page!".to_owned()
+fn handler(_: &mut Request) -> IronResult<Response> {
+    Ok(Response::with((status::Ok, "Hello World!")))
 }
 
 
-fn post_page(request: &mut nickel::Request) -> String {
-
-    "Post page!".to_owned()
+fn query_handler(req: &mut Request) -> IronResult<Response> {
+    let ref query = req.extensions
+                       .get::<Router>()
+                       .unwrap()
+                       .find("query")
+                       .unwrap_or("no query");
+    let res = format!("Query is: {}", query);
+    Ok(Response::with((status::Ok, res)))
 }
-
-// fn test(request: &mut nickel::Request) -> String {
-//     "Test string!".to_owned()
-// }
 
 fn main() {
-    let mut server = Nickel::new();
-    // server.utilize(nickel::StaticFilesHandler::new("htdocs"));
-    server.get("/*", middleware!(|request| get_page(request).as_str()))
-          .post("/*", middleware!(|request| post_page(request).as_str()));
-    server.listen("127.0.0.1:8080").unwrap();
+
+    let mut router = Router::new();
+    router.get("/", handler, "index");
+    router.get("/:query", query_handler, "query");
+    router.get("/static/",
+               Static::new(Path::new("htdocs/index.html")),
+               "static");
+    let _server = Iron::new(router).http("localhost:8080").unwrap();
 }
