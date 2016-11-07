@@ -28,11 +28,21 @@ static STATIC_PATH: &'static str = "htdocs/";
 static TEMPLATE_PATH: &'static str = "templates/";
 static SERVER_ADDRESS: &'static str = "localhost:8080";
 
+
+#[derive(RustcDecodable, RustcEncodable)]
 struct PageInfo {
     body: String,
 }
 
-impl ToJson for PageInfo {}
+impl PageInfo {
+    fn new(body: &str) -> PageInfo {
+        PageInfo { body: body.to_owned() }
+    }
+}
+
+// impl ToJson for PageInfo {
+//     fn to_json(&self) -> rustc_serialize::json::Json {}
+// }
 
 fn get_page(req: &mut Request) -> IronResult<Response> {
     let ref pagename = req.extensions
@@ -57,9 +67,12 @@ fn get_page(req: &mut Request) -> IronResult<Response> {
             // Ok(Response::with((status::Ok, br)))
             // TODO: Set content-type
             let stringggggg = buffer.to_str().unwrap();
-            Ok(Response::with((status::Ok, stringggggg)));
+            let pageinfo = PageInfo::new(stringggggg);
+            let json = rustc_serialize::json::encode(&pageinfo).unwrap();
+            println!("JSON is: {}", json);
+            // Ok(Response::with((status::Ok, stringggggg)));
 
-            let t = handlebars_iron::Template::new("page", stringggggg);
+            let t = handlebars_iron::Template::new("page", json);
 
             Ok(Response::with((status::Ok, t)))
         }
