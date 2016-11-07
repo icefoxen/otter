@@ -1,3 +1,11 @@
+# Installing
+
+Install dependencies
+
+```
+apt install cmake
+```
+
 # Running
 
 Run with:
