@@ -6,3 +6,4 @@ authors = ["Simon Heath <icefoxen@gmail.com>"]
 [dependencies]
 iron = "*"
 router = "*"
+git2 = "*"
