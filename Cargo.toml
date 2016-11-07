@@ -5,9 +5,11 @@ authors = ["Simon Heath <icefoxen@gmail.com>"]
 
 [dependencies]
 iron = "*"
+handlebars-iron = "*"
 router = "*"
 git2 = "*"
 logger = "*"
 log = "*"
 env_logger = "0.3"
 hoedown = "*"
+rustc-serialize = "*"

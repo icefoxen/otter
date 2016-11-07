@@ -6,17 +6,20 @@ extern crate logger;
 extern crate log;
 extern crate env_logger;
 extern crate hoedown;
+extern crate handlebars_iron;
+extern crate rustc_serialize;
 
+use std::error::Error;
 use std::fs;
 use std::io;
-use std::io::Read;
 
 use iron::prelude::*;
 use iron::status;
-use iron::response::BodyReader;
 
 use router::Router;
 use logger::Logger;
+
+use rustc_serialize::json::ToJson;
 
 use hoedown::Render;
 
@@ -24,6 +27,12 @@ static REPO_PATH: &'static str = "pages/";
 static STATIC_PATH: &'static str = "htdocs/";
 static TEMPLATE_PATH: &'static str = "templates/";
 static SERVER_ADDRESS: &'static str = "localhost:8080";
+
+struct PageInfo {
+    body: String,
+}
+
+impl ToJson for PageInfo {}
 
 fn get_page(req: &mut Request) -> IronResult<Response> {
     let ref pagename = req.extensions
@@ -48,7 +57,11 @@ fn get_page(req: &mut Request) -> IronResult<Response> {
             // Ok(Response::with((status::Ok, br)))
             // TODO: Set content-type
             let stringggggg = buffer.to_str().unwrap();
-            Ok(Response::with((status::Ok, stringggggg)))
+            Ok(Response::with((status::Ok, stringggggg)));
+
+            let t = handlebars_iron::Template::new("page", stringggggg);
+
+            Ok(Response::with((status::Ok, t)))
         }
         Err(e) => {
             let status = match e.kind() {
@@ -114,10 +127,21 @@ fn main() {
     router.post("/:page", post_page, "page");
     router.get("/static/:item", get_static, "static");
 
+    // HandlebarsEngine will look up all files with "./examples/templates/**/*.hbs"
+    let mut hbse = handlebars_iron::HandlebarsEngine::new();
+    hbse.add(Box::new(handlebars_iron::DirectorySource::new(TEMPLATE_PATH, ".tmpl")));
+
+    // load templates from all registered sources
+    if let Err(r) = hbse.reload() {
+        panic!("{}", r.description());
+    }
+
 
     let mut chain = Chain::new(router);
 
     chain.link_before(logger_before);
+
+    chain.link_after(hbse);
     chain.link_after(logger_after);
     let _server = Iron::new(chain).http(SERVER_ADDRESS).unwrap();
     info!("Server running on {}", SERVER_ADDRESS);
