@@ -7,3 +7,6 @@ authors = ["Simon Heath <icefoxen@gmail.com>"]
 iron = "*"
 router = "*"
 git2 = "*"
+logger = "*"
+log = "*"
+env_logger = "0.3"

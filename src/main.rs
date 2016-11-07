@@ -1,16 +1,20 @@
 extern crate iron;
 extern crate router;
 extern crate git2;
+extern crate logger;
+#[macro_use]
+extern crate log;
+extern crate env_logger;
 
 use std::fs;
 use std::io;
 use std::io::Read;
-use std::path::Path;
 
 use iron::prelude::*;
 use iron::status;
 
 use router::Router;
+use logger::Logger;
 
 static REPO_PATH: &'static str = "pages/";
 static STATIC_PATH: &'static str = "htdocs/";
@@ -72,10 +76,20 @@ fn get_static(req: &mut Request) -> IronResult<Response> {
 }
 
 fn main() {
+    env_logger::init().unwrap();
+    info!("Starting...");
+    let (logger_before, logger_after) = Logger::new(None);
+
     let mut router = Router::new();
     router.get("/:page", get_page, "page");
     router.post("/:page", post_page, "page");
     router.get("/static/:item", get_static, "static");
-    let _server = Iron::new(router).http(SERVER_ADDRESS).unwrap();
-    println!("Server running on {}", SERVER_ADDRESS);
+
+
+    let mut chain = Chain::new(router);
+
+    chain.link_before(logger_before);
+    chain.link_after(logger_after);
+    let _server = Iron::new(chain).http(SERVER_ADDRESS).unwrap();
+    info!("Server running on {}", SERVER_ADDRESS);
 }
