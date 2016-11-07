@@ -3,5 +3,5 @@
 Run with:
 
 ```
-env RUST_LOG=main cargo run
+env RUST_LOG=otter=info,logger=info cargo run
 ```

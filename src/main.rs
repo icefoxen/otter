@@ -5,6 +5,7 @@ extern crate logger;
 #[macro_use]
 extern crate log;
 extern crate env_logger;
+extern crate hoedown;
 
 use std::fs;
 use std::io;
@@ -16,21 +17,44 @@ use iron::status;
 use router::Router;
 use logger::Logger;
 
+use hoedown::Render;
+
 static REPO_PATH: &'static str = "pages/";
 static STATIC_PATH: &'static str = "htdocs/";
 static TEMPLATE_PATH: &'static str = "templates/";
 static SERVER_ADDRESS: &'static str = "localhost:8080";
 
 fn get_page(req: &mut Request) -> IronResult<Response> {
-    let ref query = req.extensions
-                       .get::<Router>()
-                       .unwrap()
-                       .find("page")
-                       .unwrap_or("no query");
+    let ref pagename = req.extensions
+                          .get::<Router>()
+                          .unwrap()
+                          .find("page")
+                          .unwrap_or("no query");
 
-    // let tmpl =
-    let res = format!("Page is: {}", query);
-    Ok(Response::with((status::Ok, res)))
+    let mut pagepath = REPO_PATH.to_owned();
+    pagepath += pagename;
+    pagepath += ".md";
+
+    match fs::File::open(pagepath) {
+        Ok(file) => {
+            let md = hoedown::Markdown::read_from(file);
+
+            let mut html = hoedown::Html::new(hoedown::renderer::html::Flags::empty(), 0);
+            let buffer = html.render(&md);
+            let stringggggg = buffer.to_str().unwrap();
+            // TODO: Set content-type
+            Ok(Response::with((status::Ok, stringggggg)))
+        }
+        Err(e) => {
+            let status = match e.kind() {
+                io::ErrorKind::NotFound => status::NotFound,
+                io::ErrorKind::PermissionDenied => status::Forbidden,
+                _ => status::InternalServerError,
+            };
+
+            Err(IronError::new(e, status))
+        }
+    }
 }
 
 fn post_page(req: &mut Request) -> IronResult<Response> {
