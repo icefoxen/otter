@@ -13,6 +13,7 @@ use std::io::Read;
 
 use iron::prelude::*;
 use iron::status;
+use iron::response::BodyReader;
 
 use router::Router;
 use logger::Logger;
@@ -41,8 +42,12 @@ fn get_page(req: &mut Request) -> IronResult<Response> {
 
             let mut html = hoedown::Html::new(hoedown::renderer::html::Flags::empty(), 0);
             let buffer = html.render(&md);
-            let stringggggg = buffer.to_str().unwrap();
+            // This is bugged!
+            // See https://github.com/iron/iron/issues/498
+            // let br: BodyReader<hoedown::Buffer> = BodyReader(buffer);
+            // Ok(Response::with((status::Ok, br)))
             // TODO: Set content-type
+            let stringggggg = buffer.to_str().unwrap();
             Ok(Response::with((status::Ok, stringggggg)))
         }
         Err(e) => {
