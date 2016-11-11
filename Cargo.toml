@@ -4,12 +4,9 @@ version = "0.1.0"
 authors = ["Simon Heath <icefoxen@gmail.com>"]
 
 [dependencies]
-iron = "*"
-handlebars-iron = "*"
-router = "*"
-git2 = "*"
-logger = "*"
+pencil = "0.3"
+#git2 = "*"
 log = "*"
 env_logger = "0.3"
-hoedown = "*"
-rustc-serialize = "*"
+#hoedown = "*"
+#rustc-serialize = "*"
