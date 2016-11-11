@@ -2,13 +2,48 @@ extern crate pencil;
 #[macro_use]
 extern crate log;
 extern crate env_logger;
+extern crate hoedown;
 
 use std::collections::BTreeMap;
+use std::fs;
+use std::io;
 
 use pencil::{Pencil, Request, Response, PencilResult};
+use pencil::http_errors;
 
-fn page_get(_: &mut Request) -> PencilResult {
-    Ok(Response::from("Hello World!"))
+use hoedown::Render;
+
+static PAGE_PATH: &'static str = "pages/";
+
+fn page_path(page: &str) -> String {
+    let mut pagepath = PAGE_PATH.to_string();
+    pagepath += page;
+    pagepath += ".md";
+    pagepath
+}
+
+fn page_get(request: &mut Request) -> PencilResult {
+    let page = request.view_args.get("page").unwrap();
+    let pagepath = page_path(page);
+    match fs::File::open(pagepath) {
+        Ok(file) => {
+            let md = hoedown::Markdown::read_from(file);
+            let mut html = hoedown::Html::new(hoedown::renderer::html::Flags::empty(), 0);
+            let buffer = html.render(&md);
+            let rendered_markdown = buffer.to_str().unwrap();
+
+            Ok(Response::from(rendered_markdown))
+        }
+        Err(e) => {
+            let status = match e.kind() {
+                io::ErrorKind::NotFound => http_errors::NotFound,
+                io::ErrorKind::PermissionDenied => http_errors::Forbidden,
+                _ => http_errors::InternalServerError,
+            };
+
+            return pencil::abort(status.code())
+        }
+    }
 }
 
 fn page_post(_: &mut Request) -> PencilResult {
