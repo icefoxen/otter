@@ -32,7 +32,14 @@ fn page_get(request: &mut Request) -> PencilResult {
             let buffer = html.render(&md);
             let rendered_markdown = buffer.to_str().unwrap();
 
-            Ok(Response::from(rendered_markdown))
+            let mut ctx = BTreeMap::new();
+            //ctx.insert("page".to_string(), "template".to_string());
+            ctx.insert("page".to_string(), rendered_markdown.to_string());
+            
+            request.app.render_template("hello.html", &ctx)
+
+            
+            //Ok(Response::from(rendered_markdown))
         }
         Err(e) => {
             let status = match e.kind() {
@@ -61,7 +68,7 @@ fn setup_app() -> Pencil {
     app.set_debug(true);
     app.enable_static_file_handling();
     app.register_template("hello.html");
-    app.get("/hello_template", "hello_template", test_template_get);
+    //app.get("/hello_template", "hello_template", test_template_get);
     app.get("/<page:string>", "page_get", page_get);
     app.post("/<page:string>", "page_post", page_post);
     app
@@ -70,7 +77,7 @@ fn setup_app() -> Pencil {
 fn main() {
     let app = setup_app();
     debug!("* Running on http://localhost:5000/");
-    app.run("localhost:5000");
+    app.run("192.168.1.10:5000");
 }
 
 mod test {
