@@ -55,7 +55,8 @@ fn test_template_get(request: &mut Request) -> PencilResult {
     ctx.insert("name".to_string(), "template".to_string());
     return request.app.render_template("hello.html", &ctx);
 }
-fn main() {
+
+fn setup_app() -> Pencil {
     let mut app = Pencil::new(".");
     app.set_debug(true);
     app.enable_static_file_handling();
@@ -63,6 +64,28 @@ fn main() {
     app.get("/hello_template", "hello_template", test_template_get);
     app.get("/<page:string>", "page_get", page_get);
     app.post("/<page:string>", "page_post", page_post);
+    app
+}
+
+fn main() {
+    let app = setup_app();
     debug!("* Running on http://localhost:5000/");
     app.run("localhost:5000");
+}
+
+mod test {
+
+    // Well it turns out it's a pain in the butt to actually
+    // create unit tests, because it's a pain in the butt to
+    // actually create a pencil Request object without a 
+    // network connection involved.  See Pencil issue #41.
+    // So, actually starting the server here might well be the
+    // best way to run unit tests on it.
+    
+
+    #[test]
+    fn it_works() {
+        let req = ();
+        //page_get(request)
+    }
 }
