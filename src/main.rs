@@ -44,6 +44,10 @@ fn load_page_file(pagename: &str) -> Result<String, PencilError> {
     }
 }
 
+fn index(_request: &mut Request) -> PencilResult {
+    Ok(Response::from("TODO: Make this redirect, one way or another?"))
+}
+
 fn page_get(request: &mut Request) -> PencilResult {
     let page = request.view_args.get("page").unwrap();
     let contents = load_page_file(page)?;
@@ -53,6 +57,11 @@ fn page_get(request: &mut Request) -> PencilResult {
     let buffer = html.render(&md);
     let rendered_markdown = buffer.to_str().unwrap();
 
+    // vARIABLES THAT NEED TO EXIST:
+    // root path
+    // Header
+    // footer
+    
     let mut ctx = BTreeMap::new();
     ctx.insert("title".to_string(), page.to_string());
     ctx.insert("page".to_string(), rendered_markdown.to_string());
@@ -75,7 +84,8 @@ fn page_edit_post(request: &mut Request) -> PencilResult {
     for (key,val) in request.form().iter() {
         println!("Got arg: {:?}, {}", key, val);
     }
-    Ok(Response::from("Posted editing page!"))
+    let response = format!("Posted editing page: {}", newpage);
+    Ok(Response::from(response))
 }
 
 fn setup_app() -> Pencil {
@@ -84,6 +94,7 @@ fn setup_app() -> Pencil {
     app.enable_static_file_handling();
     app.register_template("page.html");
     app.register_template("edit.html");
+    app.get("/", "index", index);
     app.get("/<page:string>", "page_get", page_get);
     app.get("/edit/<page:string>", "page_edit_get", page_edit_get);
     app.post("/edit/<page:string>", "page_edit_post", page_edit_post);
@@ -94,7 +105,6 @@ static URL: &'static str = "localhost:5000";
 
 fn main() {
     let app = setup_app();
-    //debug!("* Running on http://localhost:5000/");
     app.run(URL);
 }
 
