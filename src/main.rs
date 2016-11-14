@@ -57,6 +57,11 @@ fn page_get(request: &mut Request) -> PencilResult {
     let buffer = html.render(&md);
     let rendered_markdown = buffer.to_str().unwrap();
 
+    // vARIABLES THAT NEED TO EXIST:
+    // root path
+    // Header
+    // footer
+    
     let mut ctx = BTreeMap::new();
     ctx.insert("title".to_string(), page.to_string());
     ctx.insert("page".to_string(), rendered_markdown.to_string());

@@ -1,0 +1,44 @@
+h1 {
+  margin: 1em;
+}
+
+body {
+  background: #f0d8a0;
+  font-family: sans;
+  float: left;
+}
+
+div.inputform {
+  background: #d0b080;
+  padding: 1em;
+  margin: 0.5em;
+  border-radius: 1em;
+}
+
+td {
+  padding: 0.3em;
+  margin: 0.5em;
+}
+
+div#status {
+  padding: 1em;
+  background: beige;
+  border=1px;
+  margin: 0.5em;
+  border-radius: 1em;
+  
+}
+
+div#output {
+  padding: 1em;
+  background: #FFFFFF;
+  
+  margin: 0.5em;
+  border-radius: 1em;
+  font-family: mono;
+}
+
+
+p#result {
+  background: #DDDDDD;
+}
