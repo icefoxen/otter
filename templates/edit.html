@@ -1,0 +1,13 @@
+<!DOCTYPE html>
+<html>
+  <title>{{title}}</title>
+  <body>
+    <p>Editing page {{title}}</p>
+    <form action="/edit/{{title}}" method="post">
+      <input name="submission" type="textarea">
+      {{{ page }}}
+      </input>
+      <input type="submit">
+      </form>
+  </body>
+</html>

@@ -7,8 +7,9 @@ extern crate hoedown;
 use std::collections::BTreeMap;
 use std::fs;
 use std::io;
+use std::io::Read;
 
-use pencil::{Pencil, Request, Response, PencilResult};
+use pencil::{Pencil, Request, Response, PencilResult, PencilError};
 use pencil::http_errors;
 
 use hoedown::Render;
@@ -22,24 +23,13 @@ fn page_path(page: &str) -> String {
     pagepath
 }
 
-fn page_get(request: &mut Request) -> PencilResult {
-    let page = request.view_args.get("page").unwrap();
-    let pagepath = page_path(page);
+fn load_page_file(pagename: &str) -> Result<String, PencilError> {
+    let pagepath = page_path(pagename);
     match fs::File::open(pagepath) {
-        Ok(file) => {
-            let md = hoedown::Markdown::read_from(file);
-            let mut html = hoedown::Html::new(hoedown::renderer::html::Flags::empty(), 0);
-            let buffer = html.render(&md);
-            let rendered_markdown = buffer.to_str().unwrap();
-
-            let mut ctx = BTreeMap::new();
-            //ctx.insert("page".to_string(), "template".to_string());
-            ctx.insert("page".to_string(), rendered_markdown.to_string());
-            
-            request.app.render_template("hello.html", &ctx)
-
-            
-            //Ok(Response::from(rendered_markdown))
+        Ok(mut file) => {
+            let mut s = String::new();
+            let _ = file.read_to_string(&mut s).unwrap();
+            Ok(s)
         }
         Err(e) => {
             let status = match e.kind() {
@@ -48,29 +38,51 @@ fn page_get(request: &mut Request) -> PencilResult {
                 _ => http_errors::InternalServerError,
             };
 
-            return pencil::abort(status.code())
+            let err = PencilError::PenHTTPError(status);
+            return Err(err)
         }
     }
 }
 
-fn page_post(_: &mut Request) -> PencilResult {
-    Ok(Response::from("Posted page!"))
+fn page_get(request: &mut Request) -> PencilResult {
+    let page = request.view_args.get("page").unwrap();
+    let contents = load_page_file(page)?;
+
+    let md = hoedown::Markdown::from(contents.as_bytes());
+    let mut html = hoedown::Html::new(hoedown::renderer::html::Flags::empty(), 0);
+    let buffer = html.render(&md);
+    let rendered_markdown = buffer.to_str().unwrap();
+
+    let mut ctx = BTreeMap::new();
+    ctx.insert("title".to_string(), page.to_string());
+    ctx.insert("page".to_string(), rendered_markdown.to_string());
+    
+    request.app.render_template("page.html", &ctx)
 }
 
-fn test_template_get(request: &mut Request) -> PencilResult {
+fn page_edit_get(request: &mut Request) -> PencilResult {
+    let page = request.view_args.get("page").unwrap();
+    let contents = load_page_file(page)?;
+
     let mut ctx = BTreeMap::new();
-    ctx.insert("name".to_string(), "template".to_string());
-    return request.app.render_template("hello.html", &ctx);
+    ctx.insert("title".to_string(), page.to_string());
+    ctx.insert("page".to_string(), contents.to_string());
+    
+    request.app.render_template("edit.html", &ctx)
+}
+fn page_edit_post(_: &mut Request) -> PencilResult {
+    Ok(Response::from("Posted editing page!"))
 }
 
 fn setup_app() -> Pencil {
     let mut app = Pencil::new(".");
     app.set_debug(true);
     app.enable_static_file_handling();
-    app.register_template("hello.html");
-    //app.get("/hello_template", "hello_template", test_template_get);
+    app.register_template("page.html");
+    app.register_template("edit.html");
     app.get("/<page:string>", "page_get", page_get);
-    app.post("/<page:string>", "page_post", page_post);
+    app.get("/edit/<page:string>", "page_edit_get", page_edit_get);
+    app.post("/edit/<page:string>", "page_edit_post", page_edit_post);
     app
 }
 
