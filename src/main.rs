@@ -70,7 +70,11 @@ fn page_edit_get(request: &mut Request) -> PencilResult {
     
     request.app.render_template("edit.html", &ctx)
 }
-fn page_edit_post(_: &mut Request) -> PencilResult {
+fn page_edit_post(request: &mut Request) -> PencilResult {
+    println!("Edit posted thing");
+    for (key,val) in request.form().iter() {
+        println!("Got arg: {:?}, {}", key, val);
+    }
     Ok(Response::from("Posted editing page!"))
 }
 
