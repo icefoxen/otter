@@ -90,13 +90,17 @@ fn setup_app() -> Pencil {
     app
 }
 
+static URL: &'static str = "localhost:5000";
+
 fn main() {
     let app = setup_app();
-    debug!("* Running on http://localhost:5000/");
-    app.run("192.168.1.10:5000");
+    //debug!("* Running on http://localhost:5000/");
+    app.run(URL);
 }
 
 mod test {
+
+    use std::process::{Command, Child};
 
     // Well it turns out it's a pain in the butt to actually
     // create unit tests, because it's a pain in the butt to
@@ -104,11 +108,29 @@ mod test {
     // network connection involved.  See Pencil issue #41.
     // So, actually starting the server here might well be the
     // best way to run unit tests on it.
-    
+    fn start_test_server() -> Child {
+        let child = Command::new("cargo")
+            .arg("run")
+            .spawn()
+            .unwrap();
+        child
+    }
+
+    fn curl(url: &str) -> Child {
+        let child = Command::new("curl")
+            .arg(url)
+            .spawn()
+            .unwrap();
+        child
+    }
 
     #[test]
     fn it_works() {
-        let req = ();
-        //page_get(request)
+        let mut c = start_test_server();
+        //c.wait().unwrap();
+        let mut curl = curl("http://localhost:5000/start");
+        curl.wait().unwrap();
+        // Goodness, no TERM signal?  How violent.
+        c.kill().unwrap();
     }
 }
