@@ -9,6 +9,7 @@ use std::fs;
 use std::io;
 use std::io::Read;
 
+use pencil::helpers;
 use pencil::{Pencil, Request, Response, PencilResult, PencilError};
 use pencil::http_errors;
 
@@ -44,8 +45,9 @@ fn load_page_file(pagename: &str) -> Result<String, PencilError> {
     }
 }
 
-fn index(_request: &mut Request) -> PencilResult {
-    Ok(Response::from("TODO: Make this redirect, one way or another?"))
+fn index_redirect(_request: &mut Request) -> PencilResult {
+    // Permanent redirect, cache-able.
+    helpers::redirect("/index", 308)
 }
 
 fn page_get(request: &mut Request) -> PencilResult {
@@ -57,13 +59,13 @@ fn page_get(request: &mut Request) -> PencilResult {
     let buffer = html.render(&md);
     let rendered_markdown = buffer.to_str().unwrap();
 
-    // vARIABLES THAT NEED TO EXIST:
+    // VARIABLES THAT NEED TO EXIST:
     // root path
     // Header
     // footer
     
     let mut ctx = BTreeMap::new();
-    ctx.insert("title".to_string(), page.to_string());
+    ctx.insert("pagename".to_string(), page.to_string());
     ctx.insert("page".to_string(), rendered_markdown.to_string());
     
     request.app.render_template("page.html", &ctx)
@@ -81,9 +83,7 @@ fn page_edit_get(request: &mut Request) -> PencilResult {
 }
 fn page_edit_post(request: &mut Request) -> PencilResult {
     println!("Edit posted thing");
-    for (key,val) in request.form().iter() {
-        println!("Got arg: {:?}, {}", key, val);
-    }
+    let newpage = request.form().get("submission").unwrap();
     let response = format!("Posted editing page: {}", newpage);
     Ok(Response::from(response))
 }
@@ -94,23 +94,23 @@ fn setup_app() -> Pencil {
     app.enable_static_file_handling();
     app.register_template("page.html");
     app.register_template("edit.html");
-    app.get("/", "index", index);
+    app.get("/", "index", index_redirect);
     app.get("/<page:string>", "page_get", page_get);
     app.get("/edit/<page:string>", "page_edit_get", page_edit_get);
     app.post("/edit/<page:string>", "page_edit_post", page_edit_post);
     app
 }
 
-static URL: &'static str = "localhost:5000";
+static ADDRESS: &'static str = "localhost:5000";
 
 fn main() {
     let app = setup_app();
-    app.run(URL);
+    app.run(ADDRESS);
 }
 
 mod test {
 
-    use std::process::{Command, Child};
+    //use std::process::{Command, Child};
 
     // Well it turns out it's a pain in the butt to actually
     // create unit tests, because it's a pain in the butt to
@@ -118,6 +118,7 @@ mod test {
     // network connection involved.  See Pencil issue #41.
     // So, actually starting the server here might well be the
     // best way to run unit tests on it.
+    /*
     fn start_test_server() -> Child {
         let child = Command::new("cargo")
             .arg("run")
@@ -133,7 +134,8 @@ mod test {
             .unwrap();
         child
     }
-
+    */
+/*
     #[test]
     fn it_works() {
         let mut c = start_test_server();
@@ -143,4 +145,5 @@ mod test {
         // Goodness, no TERM signal?  How violent.
         c.kill().unwrap();
     }
+*/
 }

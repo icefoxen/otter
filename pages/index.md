@@ -1,3 +1,3 @@
-# Hello world!
+# Otter wiki
 
-This is a test markdown page
+This is an index page!
