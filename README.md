@@ -27,6 +27,7 @@ env RUST_LOG=otter=info,logger=info cargo run
 
 ## Utility
 
+* Handle HTTP errors nicely.
 * Sanitize inputs, make 'em safe, however that's done. (ammonia crate?)
 * Make better logging.
 * Tests!

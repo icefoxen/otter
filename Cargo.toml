@@ -5,8 +5,13 @@ authors = ["Simon Heath <icefoxen@gmail.com>"]
 
 [dependencies]
 pencil = "0.3"
-#git2 = "*"
 log = "*"
 env_logger = "0.3"
 hoedown = "*"
 #rustc-serialize = "*"
+
+[dependencies.git2]
+version = "0.6"
+# git2 relies on an old version of libssl for https which we don't need anyway,
+# since we don't use http transports for it.
+default-features = false

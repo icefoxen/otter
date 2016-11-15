@@ -3,6 +3,7 @@ extern crate pencil;
 extern crate log;
 extern crate env_logger;
 extern crate hoedown;
+extern crate git2;
 
 use std::collections::BTreeMap;
 use std::fs;
@@ -13,6 +14,7 @@ use pencil::helpers;
 use pencil::{Pencil, Request, Response, PencilResult, PencilError};
 use pencil::http_errors;
 
+use git2::Repository;
 use hoedown::Render;
 
 static PAGE_PATH: &'static str = "pages/";
@@ -24,7 +26,16 @@ fn page_path(page: &str) -> String {
     pagepath
 }
 
+use std::convert::From;
+
+fn git_to_http_error(_err: git2::Error) -> PencilError {
+    let err = http_errors::InternalServerError;
+    PencilError::PenHTTPError(err)
+}
+
 fn load_page_file(pagename: &str) -> Result<String, PencilError> {
+    let r = Repository::init(PAGE_PATH).map_err(git_to_http_error);
+
     let pagepath = page_path(pagename);
     match fs::File::open(pagepath) {
         Ok(mut file) => {
