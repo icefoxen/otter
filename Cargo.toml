@@ -4,12 +4,14 @@ version = "0.1.0"
 authors = ["Simon Heath <icefoxen@gmail.com>"]
 
 [dependencies]
-iron = "*"
-handlebars-iron = "*"
-router = "*"
-git2 = "*"
-logger = "*"
+pencil = "0.3"
 log = "*"
 env_logger = "0.3"
 hoedown = "*"
-rustc-serialize = "*"
+#rustc-serialize = "*"
+
+[dependencies.git2]
+version = "0.6"
+# git2 relies on an old version of libssl for https which we don't need anyway,
+# since we don't use http transports for it.
+default-features = false

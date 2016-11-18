@@ -1,161 +1,160 @@
-extern crate iron;
-extern crate router;
-extern crate git2;
-extern crate logger;
+extern crate pencil;
 #[macro_use]
 extern crate log;
 extern crate env_logger;
 extern crate hoedown;
-extern crate handlebars_iron;
-extern crate rustc_serialize;
+extern crate git2;
 
-use std::error::Error;
+use std::collections::BTreeMap;
 use std::fs;
 use std::io;
+use std::io::Read;
 
-use iron::prelude::*;
-use iron::status;
+use pencil::helpers;
+use pencil::{Pencil, Request, Response, PencilResult, PencilError};
+use pencil::http_errors;
 
-use router::Router;
-use logger::Logger;
-
-use rustc_serialize::json::ToJson;
-
+use git2::Repository;
 use hoedown::Render;
 
-static REPO_PATH: &'static str = "pages/";
-static STATIC_PATH: &'static str = "htdocs/";
-static TEMPLATE_PATH: &'static str = "templates/";
-static SERVER_ADDRESS: &'static str = "localhost:8080";
+static PAGE_PATH: &'static str = "pages/";
 
-
-#[derive(RustcDecodable, RustcEncodable)]
-struct PageInfo {
-    body: String,
-}
-
-impl PageInfo {
-    fn new(body: &str) -> PageInfo {
-        PageInfo { body: body.to_owned() }
-    }
-}
-
-// impl ToJson for PageInfo {
-//     fn to_json(&self) -> rustc_serialize::json::Json {}
-// }
-
-fn get_page(req: &mut Request) -> IronResult<Response> {
-    let ref pagename = req.extensions
-                          .get::<Router>()
-                          .unwrap()
-                          .find("page")
-                          .unwrap_or("no query");
-
-    let mut pagepath = REPO_PATH.to_owned();
-    pagepath += pagename;
+fn page_path(page: &str) -> String {
+    let mut pagepath = PAGE_PATH.to_string();
+    pagepath += page;
     pagepath += ".md";
+    pagepath
+}
 
+use std::convert::From;
+
+fn git_to_http_error(_err: git2::Error) -> PencilError {
+    let err = http_errors::InternalServerError;
+    PencilError::PenHTTPError(err)
+}
+
+fn load_page_file(pagename: &str) -> Result<String, PencilError> {
+    let r = Repository::init(PAGE_PATH).map_err(git_to_http_error);
+
+    let pagepath = page_path(pagename);
     match fs::File::open(pagepath) {
-        Ok(file) => {
-            let md = hoedown::Markdown::read_from(file);
-
-            let mut html = hoedown::Html::new(hoedown::renderer::html::Flags::empty(), 0);
-            let buffer = html.render(&md);
-            // This is bugged!
-            // See https://github.com/iron/iron/issues/498
-            // let br: BodyReader<hoedown::Buffer> = BodyReader(buffer);
-            // Ok(Response::with((status::Ok, br)))
-            // TODO: Set content-type
-            let stringggggg = buffer.to_str().unwrap();
-            let pageinfo = PageInfo::new(stringggggg);
-            let json = rustc_serialize::json::encode(&pageinfo).unwrap();
-            println!("JSON is: {}", json);
-            // Ok(Response::with((status::Ok, stringggggg)));
-
-            let t = handlebars_iron::Template::new("page", json);
-
-            Ok(Response::with((status::Ok, t)))
+        Ok(mut file) => {
+            let mut s = String::new();
+            let _ = file.read_to_string(&mut s).unwrap();
+            Ok(s)
         }
         Err(e) => {
             let status = match e.kind() {
-                io::ErrorKind::NotFound => status::NotFound,
-                io::ErrorKind::PermissionDenied => status::Forbidden,
-                _ => status::InternalServerError,
+                io::ErrorKind::NotFound => http_errors::NotFound,
+                io::ErrorKind::PermissionDenied => http_errors::Forbidden,
+                _ => http_errors::InternalServerError,
             };
 
-            Err(IronError::new(e, status))
+            let err = PencilError::PenHTTPError(status);
+            return Err(err)
         }
     }
 }
 
-fn post_page(req: &mut Request) -> IronResult<Response> {
-    let ref query = req.extensions
-                       .get::<Router>()
-                       .unwrap()
-                       .find("page")
-                       .unwrap_or("no query");
-    match git2::Repository::open(REPO_PATH) {
-        Ok(repo) => {}
-        Err(e) => {
-            println!("Error: {:?}", e);
-        }
-    }
-    let res = format!("Posted page: {}", query);
-    Ok(Response::with((status::Ok, res)))
+fn index_redirect(_request: &mut Request) -> PencilResult {
+    // Permanent redirect, cache-able.
+    helpers::redirect("/index", 308)
 }
 
+fn page_get(request: &mut Request) -> PencilResult {
+    let page = request.view_args.get("page").unwrap();
+    let contents = load_page_file(page)?;
 
-fn get_static(req: &mut Request) -> IronResult<Response> {
-    let query = req.extensions
-                   .get::<Router>()
-                   .unwrap()
-                   .find("item")
-                   .unwrap_or("dne");
-    let mut staticpath = STATIC_PATH.to_owned();
-    staticpath += query;
-    match fs::File::open(staticpath) {
-        Ok(file) => {
-            // TODO: Detect content-type
-            Ok(Response::with((status::Ok, file)))
-        }
-        Err(e) => {
-            let status = match e.kind() {
-                io::ErrorKind::NotFound => status::NotFound,
-                io::ErrorKind::PermissionDenied => status::Forbidden,
-                _ => status::InternalServerError,
-            };
+    let md = hoedown::Markdown::from(contents.as_bytes());
+    let mut html = hoedown::Html::new(hoedown::renderer::html::Flags::empty(), 0);
+    let buffer = html.render(&md);
+    let rendered_markdown = buffer.to_str().unwrap();
 
-            Err(IronError::new(e, status))
-        }
-    }
+    // VARIABLES THAT NEED TO EXIST:
+    // root path
+    // Header
+    // footer
+    
+    let mut ctx = BTreeMap::new();
+    ctx.insert("pagename".to_string(), page.to_string());
+    ctx.insert("page".to_string(), rendered_markdown.to_string());
+    
+    request.app.render_template("page.html", &ctx)
 }
+
+fn page_edit_get(request: &mut Request) -> PencilResult {
+    let page = request.view_args.get("page").unwrap();
+    let contents = load_page_file(page)?;
+
+    let mut ctx = BTreeMap::new();
+    ctx.insert("title".to_string(), page.to_string());
+    ctx.insert("page".to_string(), contents.to_string());
+    
+    request.app.render_template("edit.html", &ctx)
+}
+fn page_edit_post(request: &mut Request) -> PencilResult {
+    println!("Edit posted thing");
+    let newpage = request.form().get("submission").unwrap();
+    let response = format!("Posted editing page: {}", newpage);
+    Ok(Response::from(response))
+}
+
+fn setup_app() -> Pencil {
+    let mut app = Pencil::new(".");
+    app.set_debug(true);
+    app.enable_static_file_handling();
+    app.register_template("page.html");
+    app.register_template("edit.html");
+    app.get("/", "index", index_redirect);
+    app.get("/<page:string>", "page_get", page_get);
+    app.get("/edit/<page:string>", "page_edit_get", page_edit_get);
+    app.post("/edit/<page:string>", "page_edit_post", page_edit_post);
+    app
+}
+
+static ADDRESS: &'static str = "localhost:5000";
 
 fn main() {
-    env_logger::init().unwrap();
-    info!("Starting...");
-    let (logger_before, logger_after) = Logger::new(None);
+    let app = setup_app();
+    app.run(ADDRESS);
+}
 
-    let mut router = Router::new();
-    router.get("/:page", get_page, "page");
-    router.post("/:page", post_page, "page");
-    router.get("/static/:item", get_static, "static");
+mod test {
 
-    // HandlebarsEngine will look up all files with "./examples/templates/**/*.hbs"
-    let mut hbse = handlebars_iron::HandlebarsEngine::new();
-    hbse.add(Box::new(handlebars_iron::DirectorySource::new(TEMPLATE_PATH, ".tmpl")));
+    //use std::process::{Command, Child};
 
-    // load templates from all registered sources
-    if let Err(r) = hbse.reload() {
-        panic!("{}", r.description());
+    // Well it turns out it's a pain in the butt to actually
+    // create unit tests, because it's a pain in the butt to
+    // actually create a pencil Request object without a 
+    // network connection involved.  See Pencil issue #41.
+    // So, actually starting the server here might well be the
+    // best way to run unit tests on it.
+    /*
+    fn start_test_server() -> Child {
+        let child = Command::new("cargo")
+            .arg("run")
+            .spawn()
+            .unwrap();
+        child
     }
 
-
-    let mut chain = Chain::new(router);
-
-    chain.link_before(logger_before);
-
-    chain.link_after(hbse);
-    chain.link_after(logger_after);
-    let _server = Iron::new(chain).http(SERVER_ADDRESS).unwrap();
-    info!("Server running on {}", SERVER_ADDRESS);
+    fn curl(url: &str) -> Child {
+        let child = Command::new("curl")
+            .arg(url)
+            .spawn()
+            .unwrap();
+        child
+    }
+    */
+/*
+    #[test]
+    fn it_works() {
+        let mut c = start_test_server();
+        //c.wait().unwrap();
+        let mut curl = curl("http://localhost:5000/start");
+        curl.wait().unwrap();
+        // Goodness, no TERM signal?  How violent.
+        c.kill().unwrap();
+    }
+*/
 }
